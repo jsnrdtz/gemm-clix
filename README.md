@@ -7,7 +7,7 @@ A command line interface for GEMM cryptocurrency mining.
 To install the CLI, use [cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html):
 
 ```sh
-cargo install gemm-cli
+cargo install --git https://github.com/KeenHero/gemm-cli.git
 ```
 
 
