@@ -47,5 +47,5 @@ cargo build --release
 You can use the `-h` flag on any command to pull up a help menu with documentation:
 
 ```sh
-ore -h
+gemm -h
 ```
