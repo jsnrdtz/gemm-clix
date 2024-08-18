@@ -254,7 +254,7 @@ impl Miner {
         let clock = get_clock(&self.rpc_client).await;
         proof
             .last_hash_at
-            .saturating_add(60)
+            .saturating_add(360)
             .saturating_sub(buffer_time as i64)
             .saturating_sub(clock.unix_timestamp)
             .max(0) as u64
@@ -289,8 +289,8 @@ fn calculate_multiplier(balance: u64, top_balance: u64) -> f64 {
 }
 
 fn format_duration(seconds: u32) -> String {
-    let minutes = seconds / 60;
-    let remaining_seconds = seconds % 60;
+    let minutes = seconds / 360;
+    let remaining_seconds = seconds % 360;
     format!("{:02}:{:02}", minutes, remaining_seconds)
 }
 
