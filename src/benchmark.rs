@@ -1,80 +1,29 @@
-use std::{sync::Arc, time::Instant};
-
-use drillx::equix;
-use solana_rpc_client::spinner;
-
-use crate::{args::BenchmarkArgs, Miner};
-
-const TEST_DURATION: i64 = 30;
+extern "C" {
+    fn runBenchmark(challenge: *const u8, total_nonces: *mut u64, num_threads: i32, duration: i32);
+}
 
 impl Miner {
     pub async fn benchmark(&self, args: BenchmarkArgs) {
-        // Check num threads
+        // Проверка количества потоков
         self.check_num_cores(args.cores);
 
-        // Dispatch job to each thread
+        // Запуск задачи на GPU
         let challenge = [0; 32];
-        let progress_bar = Arc::new(spinner::new_progress_bar());
-        progress_bar.set_message(format!(
-            "Benchmarking. This will take {} sec...",
-            TEST_DURATION
-        ));
-        let core_ids = core_affinity::get_core_ids().unwrap();
-        let handles: Vec<_> = core_ids
-            .into_iter()
-            .map(|i| {
-                std::thread::spawn({
-                    move || {
-                        let timer = Instant::now();
-                        let first_nonce = u64::MAX
-                            .saturating_div(args.cores)
-                            .saturating_mul(i.id as u64);
-                        let mut nonce = first_nonce;
-                        let mut memory = equix::SolverMemory::new();
-                        loop {
-                            // Return if core should not be used
-                            if (i.id as u64).ge(&args.cores) {
-                                return 0;
-                            }
+        let mut total_nonces = vec![0u64; args.cores as usize];
 
-                            // Pin to core
-                            let _ = core_affinity::set_for_current(i);
-
-                            // Create hash
-                            let _hx = drillx::hash_with_memory(
-                                &mut memory,
-                                &challenge,
-                                &nonce.to_le_bytes(),
-                            );
-
-                            // Increment nonce
-                            nonce += 1;
-
-                            // Exit if time has elapsed
-                            if (timer.elapsed().as_secs() as i64).ge(&TEST_DURATION) {
-                                break;
-                            }
-                        }
-
-                        // Return hash count
-                        nonce - first_nonce
-                    }
-                })
-            })
-            .collect();
-
-        // Join handles and return best nonce
-        let mut total_nonces = 0;
-        for h in handles {
-            if let Ok(count) = h.join() {
-                total_nonces += count;
-            }
+        // Вызов функции CUDA
+        unsafe {
+            runBenchmark(
+                challenge.as_ptr(),
+                total_nonces.as_mut_ptr(),
+                args.cores as i32,
+                TEST_DURATION as i32,
+            );
         }
 
-        // Update log
-        progress_bar.finish_with_message(format!(
-            "Hashpower: {} H/sec",
-            total_nonces.saturating_div(TEST_DURATION as u64),
-        ));
+        // Расчет и вывод результатов
+        let total_nonces: u64 = total_nonces.iter().sum();
+        let hashpower = total_nonces.saturating_div(TEST_DURATION as u64);
+        println!("Hashpower: {} H/sec", hashpower);
     }
 }
